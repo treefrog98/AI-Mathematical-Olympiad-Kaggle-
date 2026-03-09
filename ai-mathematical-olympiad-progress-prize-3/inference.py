@@ -1,5 +1,19 @@
 import polars as pl
 
+"""
+Model Shortlist
+1. deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+- https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+
+2. Qwen/Qwen2.5-Math-7B-Instruct
+- https://huggingface.co/Qwen/Qwen2.5-Math-7B-Instruct
+
+3. deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
+- https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
+
+Critical Dataset for SFT
+https://huggingface.co/datasets/nvidia/OpenMathReasoning (used for AIMO-2 submission)
+"""
 
 # TODO: load your model here
 def load_model():

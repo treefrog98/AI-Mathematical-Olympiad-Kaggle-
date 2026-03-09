@@ -5,6 +5,11 @@ Model Shortlist
 1. deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
 - https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
 
+Distillation works like this:
+- Train a huge powerful teacher model (DeepSeek-R1).
+- Generate lots of reasoning examples from it.
+- Train a smaller model to imitate the teacher.
+
 2. Qwen/Qwen2.5-Math-7B-Instruct
 - https://huggingface.co/Qwen/Qwen2.5-Math-7B-Instruct
 

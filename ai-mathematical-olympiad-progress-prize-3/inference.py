@@ -119,6 +119,12 @@ def run_inference(model, tokenizer, problem: str, max_new_tokens: int = 4096) ->
 
     After this step, the problem text has been converted to a tensor of integers:
     "What is 2+2?" → [3923, 374, 220, 17, 10, 17, 30]
+
+    Two keys:
+    - input_ids — your text as numbers. Shape: [1, 23] meaning 1 sequence, 23 tokens long.
+    - attention_mask — a tensor of 1s and 0s, same shape. 
+    1 means "pay attention to this token", 0 means "ignore this (it's padding)". 
+    For a single input it's all 1s. Only matters when you batch multiple sequences of different lengths together.
     """
     inputs = tokenizer.apply_chat_template(
         messages,
@@ -146,6 +152,13 @@ def run_inference(model, tokenizer, problem: str, max_new_tokens: int = 4096) ->
     - temperature=0.6 - controls randomness (0.0 means pick single most likely next token, 1.0 sample proprotional to model's distribution)
     other values can just be creative
     - pad_token_id = tells the model what token means "I'm done" - without this some models throw a warning or generate forever
+
+    model.generate returning inputs+outputs concatenated is a HF design decision
+    - supports multiple use cases:
+        - continued generation - sometimes you want to feed the output back in as a new input and keep generating (full sequence
+        helps here)
+        - encoder-decoder models behave differently, input/output separation is less clean there
+        - beam search - internally tracks multiple candidate sequences, easier to return them all as full seqeuences
     """
     with torch.no_grad():
         outputs = model.generate(
@@ -163,6 +176,8 @@ def run_inference(model, tokenizer, problem: str, max_new_tokens: int = 4096) ->
     - [input_len:] - slice off everything from input_len onwards (discards the input you sent and keeps only what the model generated)
     - tokenizer.decode(...) - converts token IDs back to human-readble text (reverse of what apply chat template did)
     - skip_special_tokens=True - removes special formatting tokens (we just want the plain text!)
+
+    - outputs is still a 2D tensor [batch_size, sequence_length] - need to grab the first row and then slice the tokens
     """
     return tokenizer.decode(outputs[0][input_len:], skip_special_tokens=True)
 
@@ -172,6 +187,26 @@ def extract_answer(raw_output: str) -> int | None:
     """
     Math models typically end with \boxed{N} or a plain number.
     This tries a few patterns in order of reliability.
+
+    When you call run_inference, you get back something like this:
+    <think>
+    Let me work through this step by step.
+
+    Alice says if they each added their sweets to their age,
+    her answer would be double Bob's. Let Alice have s_a sweets
+    and age a, Bob have s_b sweets and age b.
+
+    So s_a + a = 2(s_b + b)...
+
+    [500 more lines of reasoning]
+
+    ...therefore the product of their ages is 50.
+    </think>
+
+    The product of Alice and Bob's ages is **50**.
+    The competition just needs: 50
+
+    This function extracts that integer from the blob of text.
     """
     # Strip DeepSeek's <think>...</think> reasoning block first
     output = re.sub(r"<think>.*?</think>", "", raw_output, flags=re.DOTALL).strip()

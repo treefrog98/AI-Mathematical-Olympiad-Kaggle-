@@ -99,9 +99,27 @@ def load_model(model_key: str):
 
 # ── 4. Run inference on one problem ───────────────────────────────────────────
 def run_inference(model, tokenizer, problem: str, max_new_tokens: int = 4096) -> str:
-    """Returns the raw model output string (full reasoning trace)."""
+    """
+    Chat models don't just take raw text. They expect a structured conversation format - a list of turns, each with a role (who is speaking)
+    and content (what they said).
+    """
     messages = [{"role": "user", "content": problem}]
 
+    """
+    Every model has its own special way of formatting a conversation into raw text before tokenizing.
+
+    E.g. Deepseek-R1 handles internally like <|User|> What is 2+2?<|Assistant|><think>
+    apply_chat_template handles that formatting automatically so you don't have to know the exact format for each model.
+
+    - add_generation_prompt=True — adds the <｜Assistant｜> tag at the end, which tells the model "now it's your turn to respond"
+    - return_tensors="pt" — return PyTorch tensors (numbers), not raw text. "pt" = PyTorch. Could also be "tf" for TensorFlow.
+    - return_dict=True — return a dictionary {"input_ids": ..., "attention_mask": ...} instead of just a plain tensor
+    - .to(model.device) — move those tensors onto the same device as the model (GPU). If the model is on cuda:0 and 
+    your input is on CPU, it will crash.
+
+    After this step, the problem text has been converted to a tensor of integers:
+    "What is 2+2?" → [3923, 374, 220, 17, 10, 17, 30]
+    """
     inputs = tokenizer.apply_chat_template(
         messages,
         add_generation_prompt=True,
@@ -109,8 +127,26 @@ def run_inference(model, tokenizer, problem: str, max_new_tokens: int = 4096) ->
         return_dict=True,
     ).to(model.device)
 
+    """
+    Remember how long the input is
+    inputs["input_ids"] is a 2D tensor of shape [batch size, sequence length] <- -1 gets you the number of tokens in the input
+    - we want to save this number when we decode the model's response (mark where the input ends so you know where the output begins)
+    """
     input_len = inputs["input_ids"].shape[-1]
 
+    """
+    Generate the response
+
+    - torch.no_grad() tells PyTorch not to track gradients - gradients we only need during training, we just waste memory and compute
+    if it is on for ifnerence
+    - **inputs - unpacks the dictionary, so instead of passing one dict object, we pass in input_ids=..., attention_mask=... as separate
+    keyword arguments
+    - max_new_tokens - the model can generate at most 4k tokens. This should be high since math reasoning models can think a while before
+    answering
+    - temperature=0.6 - controls randomness (0.0 means pick single most likely next token, 1.0 sample proprotional to model's distribution)
+    other values can just be creative
+    - pad_token_id = tells the model what token means "I'm done" - without this some models throw a warning or generate forever
+    """
     with torch.no_grad():
         outputs = model.generate(
             **inputs,
@@ -120,6 +156,14 @@ def run_inference(model, tokenizer, problem: str, max_new_tokens: int = 4096) ->
             pad_token_id=tokenizer.eos_token_id,
         )
 
+    """
+    Decode only the new tokens
+
+    = outputs[0] - grab the first (and only) item in the batch - now you have a 1D tensor of all the tokens
+    - [input_len:] - slice off everything from input_len onwards (discards the input you sent and keeps only what the model generated)
+    - tokenizer.decode(...) - converts token IDs back to human-readble text (reverse of what apply chat template did)
+    - skip_special_tokens=True - removes special formatting tokens (we just want the plain text!)
+    """
     return tokenizer.decode(outputs[0][input_len:], skip_special_tokens=True)
 
 

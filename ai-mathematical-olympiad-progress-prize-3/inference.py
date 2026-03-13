@@ -144,7 +144,7 @@ def run_inference(model, tokenizer, problem: str, max_new_tokens: int = 4096) ->
     Generate the response
 
     - torch.no_grad() tells PyTorch not to track gradients - gradients we only need during training, we just waste memory and compute
-    if it is on for ifnerence
+    if it is on for inference
     - **inputs - unpacks the dictionary, so instead of passing one dict object, we pass in input_ids=..., attention_mask=... as separate
     keyword arguments
     - max_new_tokens - the model can generate at most 4k tokens. This should be high since math reasoning models can think a while before

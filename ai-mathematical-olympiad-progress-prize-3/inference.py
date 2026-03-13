@@ -98,7 +98,7 @@ def load_model(model_key: str):
 
 
 # ── 4. Run inference on one problem ───────────────────────────────────────────
-def run_inference(model, tokenizer, problem: str, max_new_tokens: int = 4096) -> str:
+def run_inference(model, tokenizer, problem: str, max_new_tokens: int = 16384) -> str:
     """
     Chat models don't just take raw text. They expect a structured conversation format - a list of turns, each with a role (who is speaking)
     and content (what they said).

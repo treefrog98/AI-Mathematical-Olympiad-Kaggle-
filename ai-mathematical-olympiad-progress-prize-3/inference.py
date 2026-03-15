@@ -200,7 +200,7 @@ def run_dev_loop(llm: LLM, model_key: str, reference_path: str = "reference.csv"
     print(f"Score: {correct}/{total} ({100*correct/total:.1f}%)")
     print(f"{'='*65}\n")
 
-    out_path = f"results_{model_key}.csv"
+    out_path = f"/workspace/results_{model_key}.csv"
     pl.DataFrame(results).write_csv(out_path)
     print(f"Full outputs saved to: {out_path}")
 

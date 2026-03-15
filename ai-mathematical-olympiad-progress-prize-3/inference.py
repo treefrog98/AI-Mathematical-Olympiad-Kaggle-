@@ -20,8 +20,8 @@ from vllm import LLM, SamplingParams
 # ── 1. Model registry ──────────────────────────────────────────────────────────
 # Add new models here as you experiment. Key = short name, value = HF model ID.
 MODELS = {
-    "deepseek-r1-7b":  "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",   # 14GB VRAM fp16
-    "deepseek-r1-32b": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",   # needs ~20GB (4bit) or 80GB GPU
+    "deepseek-r1-7b":  "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",             # ~16GB VRAM fp16, ~15GB download
+    "deepseek-r1-32b": "unsloth/DeepSeek-R1-Distill-Qwen-32B-bnb-4bit",       # ~16GB VRAM 4bit, ~20GB download
 }
 
 # Max context window per model (input + output combined).

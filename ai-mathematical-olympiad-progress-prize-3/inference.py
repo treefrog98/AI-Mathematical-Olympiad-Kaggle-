@@ -21,8 +21,13 @@ from vllm import LLM, SamplingParams
 # Add new models here as you experiment. Key = short name, value = HF model ID.
 MODELS = {
     "deepseek-r1-7b":  "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",   # 14GB VRAM fp16
-    "qwen-math-7b":    "Qwen/Qwen2.5-Math-7B-Instruct",              # 14GB VRAM fp16
     "deepseek-r1-32b": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",   # needs ~20GB (4bit) or 80GB GPU
+}
+
+# Max context window per model (input + output combined).
+MODEL_MAX_LEN = {
+    "deepseek-r1-7b":  32768,
+    "deepseek-r1-32b": 32768,
 }
 
 # ── 2. Change this to switch models ───────────────────────────────────────────
@@ -60,6 +65,8 @@ def load_model(model_key: str) -> LLM:
     model_id = MODELS[model_key]
     print(f"\nLoading: {model_id}")
 
+    max_model_len = MODEL_MAX_LEN[model_key]
+
     if model_key == "deepseek-r1-32b":
         # 32B in fp16 = ~64GB, won't fit on a 3090 (24GB).
         # bitsandbytes 4-bit quantization shrinks it to ~16GB.
@@ -69,13 +76,13 @@ def load_model(model_key: str) -> LLM:
             quantization="bitsandbytes",
             load_format="bitsandbytes",
             dtype="half",
-            max_model_len=32768,
+            max_model_len=max_model_len,
         )
     else:
         llm = LLM(
             model=model_id,
             dtype="half",
-            max_model_len=32768,
+            max_model_len=max_model_len,
         )
 
     print("Model loaded!\n")
@@ -83,7 +90,7 @@ def load_model(model_key: str) -> LLM:
 
 
 # ── 5. Run inference on one problem ───────────────────────────────────────────
-def run_inference(llm: LLM, problem: str) -> str:
+def run_inference(llm: LLM, problem: str, max_new_tokens: int = MAX_NEW_TOKENS) -> str:
     """
     vLLM's .chat() handles the chat template formatting automatically —
     same job that apply_chat_template did in HuggingFace, but built in.
@@ -105,7 +112,7 @@ def run_inference(llm: LLM, problem: str) -> str:
     """
     sampling_params = SamplingParams(
         temperature=TEMPERATURE,
-        max_tokens=MAX_NEW_TOKENS,
+        max_tokens=max_new_tokens,
     )
 
     outputs = llm.chat(
@@ -166,9 +173,12 @@ def run_dev_loop(llm: LLM, model_key: str, reference_path: str = "reference.csv"
     total = len(ref)
     results = []
 
+    # Cap output tokens to leave room for the input within the model's context window.
+    max_new_tokens = min(MAX_NEW_TOKENS, MODEL_MAX_LEN[model_key] - 512)
+
     print(f"{'='*65}")
     print(f"Benchmarking {model_key} on {total} reference problems")
-    print(f"max_new_tokens={MAX_NEW_TOKENS} | temperature={TEMPERATURE}")
+    print(f"max_new_tokens={max_new_tokens} | temperature={TEMPERATURE}")
     print(f"{'='*65}\n")
 
     for i, row in enumerate(ref.iter_slices(n_rows=1)):
@@ -177,7 +187,7 @@ def run_dev_loop(llm: LLM, model_key: str, reference_path: str = "reference.csv"
         true_ans = row["answer"].item(0)
 
         t0         = time.time()
-        raw        = run_inference(llm, problem)
+        raw        = run_inference(llm, problem, max_new_tokens)
         elapsed    = time.time() - t0
         pred       = extract_answer(raw)
         is_correct = pred == true_ans

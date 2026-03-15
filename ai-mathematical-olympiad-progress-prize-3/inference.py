@@ -15,9 +15,13 @@ import re
 import time
 import argparse
 from collections import Counter
+from pathlib import Path
 
 import polars as pl
 from vllm import LLM, SamplingParams
+
+# Always resolve paths relative to this script's directory, regardless of cwd.
+SCRIPT_DIR = Path(__file__).parent
 
 
 # ── 1. Model registry ──────────────────────────────────────────────────────────
@@ -213,7 +217,9 @@ def adaptive_majority_vote(
 
 
 # ── 10. Dev loop ───────────────────────────────────────────────────────────────
-def run_dev_loop(llm: LLM, model_key: str, reference_path: str = "reference.csv"):
+def run_dev_loop(llm: LLM, model_key: str, reference_path: str | None = None):
+    if reference_path is None:
+        reference_path = SCRIPT_DIR / "reference.csv"
     ref = pl.read_csv(reference_path)
     correct = 0
     total = len(ref)
